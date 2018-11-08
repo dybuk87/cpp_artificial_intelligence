@@ -20,21 +20,21 @@
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
-//#include "core/ux_window.h"
-//#include "core/ux_bitmap.h"
+#include "core/ux_window.h"
+#include "core/ux_bitmap.h"
 
 using namespace std;
 
 const float BIAS = 1.0f;
 
 
-const int learn_size = 1000;
+const int learn_size = 500;
 
 const int validate_size = 3000;
 
 
-const int w_width = 375;
-const int w_height = 375;
+const int w_width = 800;
+const int w_height = 800;
 
 typedef float (*ActivationFunc)(float value);
 typedef float (*DerivativeFunc)(float value);
@@ -59,6 +59,14 @@ private:
     const DerivativeFunc derivativeFunc;
 };
 
+float logistic(float value) {
+    return (float)(1.0f / (1.0f + exp(-value)));
+}
+
+float dlogistic(float value) {
+    return logistic(value)*(1.0f - logistic(value));
+}
+
 float identity(float value) {
     return value;
 }
@@ -76,7 +84,7 @@ float drelu(float value) {
 }
 
 float testFunc(float x) {
-    return 1.23 * x - 0.5;
+    return  1.73 * x - 0.85;
 }
 
 float* generateHigh(float (*testFunc)(float), int count, float minX, float minY, float maxX, float maxY) { 
@@ -140,45 +148,6 @@ float* generateLow(float (*testFunc)(float), int count, float minX, float minY, 
     return result;
 }
 
-int main(int argc, char* argv[]) {
-    
-    float* low = generateLow(testFunc, learn_size, -1.0f, -1.0f, 1.0f, 1.0f);
-    float* high = generateHigh(testFunc, learn_size, -1.0f, -1.0f, 1.0f, 1.0f);
-    
-    // validation set has bigger range - neural network should assume valid results
-    float* validateSetLow = generateLow(testFunc, validate_size, -3.0f, -3.0f, 3.0f, 3.0f);
-    float* validateSetHigh = generateHigh(testFunc, validate_size, -3.0f, -3.0f, 3.0f, 3.0f);
-    
-    Perceptron p(2, identity, didentity);
-    
-    float roScale = 1.0f;
-    float prevError = 100000.0f;
-    for(int i=0; i<200; i++) {
-        float errorAvg = p.train(low, high, learn_size, roScale);
-        roScale *= 0.99f;
-        roScale = max(roScale, 0.001f);
-        printf("ERROR(%d) : %8.4f   %8.5f\n", i, errorAvg, roScale);
-    }
-
-    int validCount  = 0;
-    
-    
-    for(int i=0; i<validate_size; i++) {
-        validCount += (p.calculate(validateSetLow  + i * 2) < 0.5);
-        validCount += (p.calculate(validateSetHigh + i * 2) > 0.5);
-    }
-    
-    printf("Valid percent  %8.3f\n", ((float)validCount / (validate_size * 2)));
-    
-    delete[] validateSetLow;
-    delete[] validateSetHigh;
-    
-    delete[] low;
-    delete[] high;
-    
-    return 0;
-}
-
 float Perceptron::sum(const float *input) const {
     float sum = BIAS * weight[0];
     for(int i=1; i<size; i++) {
@@ -204,13 +173,14 @@ Perceptron::Perceptron(int _size, ActivationFunc _activationFunc, DerivativeFunc
 
     
 float Perceptron::train(const float *value, const float expected, float roScale) {
+    float sumVal = sum(value);
     float testValue = calculate(value);  // expected 0.0f
     float error = 0.5 * (expected - testValue) * (expected - testValue);    // error
    //printf("p(%6.5f, %6.5f) = %6.5f expected %6.5f  - error : %6.5f\n",
      //              value[0], value[1], testValue, expected, error);
         
     float dErrordOut = -(expected - testValue);
-    float dOutdNet = derivativeFunc(testValue);
+    float dOutdNet = derivativeFunc(sumVal);
     
     float dNetdBias = 1.0f;
     
@@ -238,21 +208,131 @@ float Perceptron::train(const float *low, const float* high, int count, float ro
     return dError / (2 * count);
 }
 
-/*
+UxBitmap bitmap(w_width, w_height, ARGB_8888);
 
-void onFrame(UxWindow* uxWindow) {
-	
-	//uxWindow->getBitmap().drawBitmap(xBitmap, xPos, yPos);
+void onFrame(UxWindow* uxWindow) {    
+    
+    uxWindow->getBitmap().drawBitmap(&bitmap, 0, 0);            
 }
 
+Perceptron p(2, logistic, dlogistic);
 
+const int plotSize = 1;
+
+void plot(UxBitmap& bitmap, int x, int y, int color) {   
+    int sx = max(0, x - plotSize);
+    int sy = max(0, y - plotSize);
+    
+    int ex = min(bitmap.getWidth(), x + plotSize + 1);
+    int ey = min(bitmap.getHeight(), y + plotSize + 1);
+          
+    for(int yy = sy; yy<ey; yy++) {
+        for(int xx = sx; xx<ex; xx++) {
+            bitmap.asUInt32()[xx + yy * bitmap.getWidth()] = color;
+        }
+    }
+}
 
 void init() {
     
+     float* low = generateLow(testFunc, learn_size, -1.0f, -1.0f, 1.0f, 1.0f);
+    float* high = generateHigh(testFunc, learn_size, -1.0f, -1.0f, 1.0f, 1.0f);
+    
+    // validation set has bigger range - neural network should assume valid results
+    float* validateSetLow = generateLow(testFunc, validate_size, -3.0f, -3.0f, 3.0f, 3.0f);
+    float* validateSetHigh = generateHigh(testFunc, validate_size, -3.0f, -3.0f, 3.0f, 3.0f);
+    
+    
+    
+    float roScale = 1.0f;
+    float prevError = 100000.0f;
+    for(int i=0; i<2000; i++) {
+        float errorAvg = p.train(low, high, learn_size, roScale);
+        roScale *= 0.99999f;
+        roScale = max(roScale, 0.001f);
+       // printf("ERROR(%d) : %8.4f   %8.5f\n", i, errorAvg, roScale);
+    }
+
+        float errorAvg = p.train(low, high, learn_size, roScale);
+        printf("ERROR : %8.4f   %8.5f\n", errorAvg, roScale);
+    
+    int validCount  = 0;
+    
+    
+    for(int i=0; i<validate_size; i++) {
+        validCount += (p.calculate(validateSetLow  + i * 2) < 0.5);
+        validCount += (p.calculate(validateSetHigh + i * 2) > 0.5);
+    }
+    
+    printf("Valid percent  %8.3f\n", ((float)validCount / (validate_size * 2)));
+    
+ 
+    
+    uint32* data = bitmap.asUInt32();
+    
+    for(int y=0; y<bitmap.getHeight(); y++) {
+        for(int x=0; x<bitmap.getWidth(); x++) {            
+            
+            float xx = x;
+            float yy = y;
+            
+            xx /= bitmap.getWidth();  // 0 .. 1
+            yy /= bitmap.getHeight();
+            
+            xx = xx * 6.0f - 3.0f;
+            yy = yy * 6.0f - 3.0f;
+            
+            float in[] = { xx, yy };
+            
+            //std::cout<<"IN "<<xx<<", "<<yy<<" = "<<p.calculate(in)<<std::endl;
+            
+           plot(bitmap, x, y, p.calculate(in) > 0.5 ? 0xFF00FF00 : 0xFF000000);            
+        }
+    }    
+    
+    for(int i=0; i<learn_size; i++) {
+        float xx = low[i * 2 + 0];
+        float yy = low[i * 2 + 1];
+        
+        int x = (int)(bitmap.getWidth()  * (xx + 3.0f) / 6.0);
+        int y = (int)(bitmap.getHeight() * (yy + 3.0f) / 6.0);
+        
+         plot(bitmap, x, y, 0xFFFF0000);
+               
+    }
+    
+    for(int i=0; i<learn_size; i++) {
+        float xx = high[i * 2 + 0];
+        float yy = high[i * 2 + 1];
+        
+        int x = (int)(bitmap.getWidth()  * (xx + 3.0f) / 6.0);
+        int y = (int)(bitmap.getHeight() * (yy + 3.0f) / 6.0);       
+        
+        plot(bitmap, x, y, 0xFF0000FF);
+    }
+    
+    for(int x=0; x<bitmap.getWidth(); x++) {
+        float xx = (float)x  / bitmap.getWidth() ;
+        xx = xx * 6.0f - 3.0f;
+        
+        float yy = testFunc(xx);
+        int y = (int)(bitmap.getHeight() * (yy + 3.0f) / 6.0);
+        
+        y = min(max(0, y), bitmap.getHeight() - 1);
+     
+        
+        plot(bitmap, x, y, 0xFFFFffff);
+    }
+    
+    delete[] validateSetLow;
+    delete[] validateSetHigh;
+    
+    delete[] low;
+    delete[] high;   
     
     UxWindow* uxWindow1 = new UxWindow(mainEnvironment, "Test 1", w_width, w_height, onFrame);
     uxWindow1->show();
 	
 }
 
-START_PROC(init())*/
+START_PROC(init())
