@@ -13,6 +13,8 @@
 
 #include "Layer.h"
 
+#include <cstring>
+
 Layer::Layer(ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc, 
             int _inputCount, float* _input,
             float *_weights,

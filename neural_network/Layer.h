@@ -16,6 +16,8 @@
 
 #include "activ_func.h"
 #include <memory>
+#include <iostream>
+
 
 class Layer {
 public:
