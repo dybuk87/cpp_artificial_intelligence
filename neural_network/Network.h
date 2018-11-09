@@ -20,13 +20,13 @@
 
 class Network {
 public:
-    Network(int inputCount, const std::vector<LayerMeta>& layers);
+    Network(int inputCount, const std::vector<std::shared_ptr<LayerMeta> >& _layers);
     
     void calculate();
     
     void backprop(float *target, float roScale);
     
-    float totalError(float *target);
+    float totalError(float *target) const;
     
     float* getInput() const ;
     
@@ -39,13 +39,13 @@ private:
     std::vector<std::shared_ptr<Layer> > layers;
     
     int inputCount;
-    std::unique_ptr<float> layersInputs;
+    std::unique_ptr<float[]> layersInputs;
     
-    std::unique_ptr<float> layersSums;
+    std::unique_ptr<float[]> layersSums;
     
-    std::unique_ptr<float> weights;
+    std::unique_ptr<float[]> weights;
     
-    float *output;
+    float * output;
    
 };
 

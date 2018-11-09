@@ -12,11 +12,10 @@
  */
 
 #include "Network.h"
-
-
+#include "DenseLayer.h"
 #include <iostream>
 
-Network::Network(int _inputCount, const std::vector<LayerMeta>& _layers) {
+Network::Network(int _inputCount, const std::vector<std::shared_ptr<LayerMeta> >& _layers) {
     this->inputCount = _inputCount;
     
     int countInputs = _inputCount;
@@ -26,13 +25,19 @@ Network::Network(int _inputCount, const std::vector<LayerMeta>& _layers) {
     int prevCount = _inputCount;
     
     for(int i=0; i<_layers.size(); i++) {
-        const LayerMeta& layer = _layers[i];
-        countInputs += layer.getNeuronCount();
-        countSumOutputs += layer.getNeuronCount();
- 
-        countParams += (prevCount + 1) * layer.getNeuronCount();
+        const std::shared_ptr<LayerMeta>& layer = _layers[i];
         
-        prevCount = layer.getNeuronCount();
+        DropoutLayerMeta* dropout = dynamic_cast<DropoutLayerMeta*>(layer.get());
+        if (dropout) {
+            continue;
+        }
+        
+        countInputs += layer->getNeuronCount();
+        countSumOutputs += layer->getNeuronCount();
+ 
+        countParams += (prevCount + 1) * layer->getNeuronCount();
+        
+        prevCount = layer->getNeuronCount();
     }
     
     this->layersInputs.reset(new float[countInputs]);
@@ -44,14 +49,19 @@ Network::Network(int _inputCount, const std::vector<LayerMeta>& _layers) {
     int outputPos = 0;
     int weightPos = 0;
     for(int i=0; i<_layers.size(); i++) {
-         const LayerMeta& layerMeta = _layers[i];
+          DropoutLayerMeta* dropout = dynamic_cast<DropoutLayerMeta*>(_layers[i].get());
+            if (dropout) {
+                continue;
+            }
+        
+         const std::shared_ptr<DenseLayerMeta>& layerMeta = std::static_pointer_cast<DenseLayerMeta> (_layers[i]);
          
-         std::cout<<layerMeta.getNeuronCount()<<" IN " << inputPos<<" WEIGHTS " <<weightPos <<" SUM " << outputPos <<" OUT "<<(inputPos + prevInputCount) << std::endl;
+         std::cout<<layerMeta->getNeuronCount()<<" IN " << inputPos<<" WEIGHTS " <<weightPos <<" SUM " << outputPos <<" OUT "<<(inputPos + prevInputCount) << std::endl;
          
-        Layer* layer  = new Layer(layerMeta.getActivationFunction(), layerMeta.getDerivativeFunc(),
+         Layer* layer  = new DenseLayer(layerMeta->getActivationFunction(), layerMeta->getDerivativeFunc(),
                  prevInputCount, this->layersInputs.get() + inputPos,   
                  this->weights.get() + weightPos,              
-                 layerMeta.getNeuronCount(), 
+                 layerMeta->getNeuronCount(), 
                  this->layersSums.get()   + outputPos,
                  this->layersInputs.get() + inputPos + prevInputCount);
          
@@ -62,16 +72,16 @@ Network::Network(int _inputCount, const std::vector<LayerMeta>& _layers) {
          inputPos += prevInputCount;
          outputPos += prevInputCount;
          
-         weightPos += (prevInputCount + 1) * layerMeta.getNeuronCount();
+         weightPos += (prevInputCount + 1) * layerMeta->getNeuronCount();
          
-         prevInputCount = layerMeta.getNeuronCount();
+         prevInputCount = layerMeta->getNeuronCount();
     }
 
     std::cout<<"Network: "<< countInputs << " " << countSumOutputs << " " << countParams << std::endl;
 
 }
 
-float Network::totalError(float *target) {
+float Network::totalError(float *target) const {
     int outputLen = this->layers[this->layers.size() - 1]->getOutputCount();
     
     float total = 0.0f;

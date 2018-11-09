@@ -14,16 +14,49 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include "DropoutLayer.h"
 
 #include "Network.h"
 #include "NeuralNetBuilder.h"
 
 using namespace std;
 
+class Data {
+public:
+    Data(float x, float y, int classNo);
+    
+    float* getIn() const;
+    
+    float* getOut() const;
+    
+private:
+    float in[2];
+    float out[4];
+};
+
+Data::Data(float x, float y, int classNo) {
+    in[0] = x;
+    in[1] = y;
+    
+    out[0] = out[1] = out[2] = out[3] = 0.0f;
+    out[classNo] = 1.0f;
+}
+
+float* Data::getIn() const {
+      return (float*)in;
+}
+    
+float* Data::getOut() const {
+        return (float*)out;
+}
+
+unique_ptr<Data>* generateData(int setSize, float minX, float minY, float maxX, float maxY, float (*f1)(float), float (*f2)(float));
+
 void buildNetworkTest() {
     NeuralNetBuilder netBuilder(2);
     
     netBuilder.addDenseLayer(20, identity, didentity);
+    netBuilder.addDropout(0.2);
     netBuilder.addDenseLayer(15, identity, didentity);
     netBuilder.addDenseLayer(8,  identity, didentity);
     netBuilder.addDenseLayer(4,  relu, drelu);
@@ -114,6 +147,136 @@ void testNetworkTraining() {
     cout<<endl;
 }
 
+void testDropout() {
+    std::unique_ptr<float[]> input(new float[10]);
+    
+    for(int i=0; i<10; i++) {
+        input[i] = i + 1;
+    }
+    
+    DropoutLayer dropout(0.4f, 10, input.get());
+    dropout.calculate();
+    
+    std::cout.precision(4);
+    std::cout<<"DROPOUT: " << std::endl;
+    for(int i=0; i<10; i++) {
+        std::cout<<input[i]<<" ";
+    }
+    
+    std::cout<<std::endl;
+    
+    
+    
+    for(int i=0; i<10; i++) {
+        input[i] = i + 1;
+    }
+    dropout.calculate();
+    
+    std::cout.precision(4);
+    std::cout<<"DROPOUT 2: " << std::endl;
+    for(int i=0; i<10; i++) {
+        std::cout<<input[i]<<" ";
+    }
+    
+    std::cout<<std::endl;
+    
+}
+
+const int setSize = 3000;
+
+float f1(float x) {
+    return 1.32 * x + 0.5;
+}
+
+float f2(float x) {
+    return -2.32 * x + 0.5;
+}
+
+float fabs(float x) {
+    return x > 0.0f ? x : -x;
+}
+
+void networkTraining() {
+    std::unique_ptr<std::unique_ptr<Data>[]> data(
+        generateData(setSize, -1.0f, -1.0f, 1.0f, 1.0f, f1, f2)
+    );
+  /*  
+    for(int i=0; i<setSize; i++) {
+        std::cout<<"DATA: "<<i<<": "
+                <<data[i]->getIn()[0]<<", " << data[i]->getIn()[1]
+                << " = "
+                <<data[i]->getOut()[0]<<", " << data[i]->getOut()[1]<<", " << data[i]->getOut()[2]<<", " << data[i]->getOut()[3]
+                <<std::endl;
+    }*/
+    
+    NeuralNetBuilder builder(2);
+    builder.addDenseLayer(10, logistic, dlogistic);
+    //builder.addDropout(0.4);
+    builder.addDenseLayer(8, logistic, dlogistic);
+   // builder.addDropout(0.2);
+    builder.addDenseLayer(4, relu, drelu);
+    
+    builder.summary();
+    
+    std::unique_ptr<Network> network(builder.build());
+  
+    
+    // 40 000 iterations
+    for(int i=0; i<2000; i++) {
+        float mod = max(0.0f, (float)i - 1500);
+        mod = 1.0f - (mod/1000);  // mod = learning speed, first 30'000 iters equal 1.0 after that mod will decrease
+     
+        mod *= 0.05f;
+        
+        for(int j=0; j<setSize; j++) {
+            memcpy(network->getInput(), data[j]->getIn(), 2 * sizeof(float));       
+            
+           // std::cout<<"IN : " << network->getInput()[0] << " " << network->getInput()[1] <<std::endl;
+            network->calculate();
+            // backpropagation
+            network->backprop(data[j]->getOut(),  mod);
+        }
+        
+        if (i % 100 == 0) {
+            std::cout<<"ITER: " << i<<endl;
+        }
+    }
+    
+    float totalError = 0.0f;
+    
+    int validCount = 0;
+    
+    for(int j=0; j<setSize; j++) {
+        memcpy(network->getInput(), data[j]->getIn(), 2 * sizeof(float));           
+        network->calculate();
+        
+        int valid = 1;
+        for(int i=0; i<4; i++) {
+            if (network->getOutput()[i] > 0.1) {
+                network->getOutput()[i] = 1.0;
+            }
+            
+            if ( fabs(data[j]->getOut()[i] - network->getOutput()[i]) > 0.1) {
+                valid = 0;
+            }
+        }
+        
+     /*   cout<<"DATA: " <<j << " : " << network->getOutput()[0] << " " << network->getOutput()[1] << " "<< network->getOutput()[2] << " " << network->getOutput()[3] << " | "
+                   << data[j]->getOut()[0] <<" " << data[j]->getOut()[1] <<" " << data[j]->getOut()[2] <<" " << data[j]->getOut()[3] <<" " 
+                << std::endl;*/
+            // backpropagation
+        totalError += network->totalError(data[j]->getOut());
+        
+
+        
+        validCount += valid;
+        
+    }
+    
+    std::cout<<"TOTAL ERROR: " << (totalError/setSize) << std::endl;
+    std::cout<<"Valid: " << validCount << " " << ((float)validCount/setSize) << "%"<< std::endl;
+}
+
 /*
  * 
  */
@@ -122,10 +285,41 @@ int main(int argc, char** argv) {
 
     buildNetworkTest();
     testNetworkTraining();
+    testDropout();
   
+    
+    networkTraining();
     
 /*   */
     
     return 0;
 }
 
+
+unique_ptr<Data>* generateData(int setSize, float minX, float minY, float maxX, float maxY, float (*f1)(float), float (*f2)(float)) {
+    unique_ptr<Data>* data = new unique_ptr<Data>[setSize];
+    
+    for(int i=0; i<setSize; i++) {
+        float x = random()%1000;
+        float y = random()%1000;
+        
+        x /= 1000.0f;
+        y /= 1000.0f;
+        
+        x *= (maxX - minX);
+        y *= (maxY - minY);
+        
+        x += minX;
+        y += minY;
+        
+        int f1Side = (f1(x) - y) > 0 ? 1 : 0;
+        int f2Side = (f2(x) - y) > 0 ? 1 : 0;
+       
+        int classNo = (f1Side << 1) | f2Side;
+        
+        data[i] = unique_ptr<Data>(new Data(x, y, classNo));
+        
+    }
+    
+    return data;
+}

@@ -18,36 +18,25 @@
 #include <memory>
 #include <iostream>
 
+// TODO: Dropout, Convolution, MaxPool
 
 class Layer {
 public:
-    Layer(ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc, 
-            int _inputCount, float* _input,
-            float *_weights,
-            int _outputCount, float* _sum, float* _output);
+    Layer(const char *name);
     
-    void calculate();
+    virtual void calculate() = 0;
     
-    void backprop(float ro);
+    virtual void backprop(float ro) = 0;
     
-    int getOutputCount();
+    virtual int getOutputCount() const = 0;
+    
+    const char* getName() const;
    
-    ~Layer();
+    virtual ~Layer();
     
 private:
-    ActivationFunc activationFunction;
-    DerivativeFunc derivativeFunc;
-    
-    int inputCount; 
-    float* input;
-    
-    float* weights;
-    
-    std::unique_ptr<float> oldWeights;
-    
-    int outputCount;
-    float* sum;
-    float* output;
+    const std::unique_ptr<char[]> name;
+   
 };
 
 #endif /* LAYER_H */

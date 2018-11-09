@@ -13,23 +13,61 @@
 
 #include "LayerMeta.h"
 
-LayerMeta::LayerMeta(int _neuronCount, ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc):
-    neuronCount(_neuronCount), activationFunction(_activationFunction), derivativeFunc(_derivativeFunc)
+ LayerMeta::LayerMeta(const char *_name) : 
+   name(std::unique_ptr<char[]>(new char[strlen(_name) + 1])) {
+     memset(name.get(), 0, strlen(_name) + 1);
+     memcpy(name.get(), _name, strlen(_name));
+     
+ }
+ 
+const char*  LayerMeta::getName() const {
+    return name.get();
+}
+
+LayerMeta::~LayerMeta() {
+    
+}
+
+DenseLayerMeta::DenseLayerMeta(int _neuronCount, ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc):
+    LayerMeta("Dense"), neuronCount(_neuronCount), activationFunction(_activationFunction), derivativeFunc(_derivativeFunc)
 {
     
 }
 
-int LayerMeta::getNeuronCount() const {
+int DenseLayerMeta::getNeuronCount() const {
     return neuronCount;
 }
 
-LayerMeta::~LayerMeta() {
+void DenseLayerMeta::accept(LayerMetaVisitor&) {
+    
 }
 
-ActivationFunc LayerMeta::getActivationFunction() const {
+DenseLayerMeta::~DenseLayerMeta() {
+}
+
+ActivationFunc DenseLayerMeta::getActivationFunction() const {
     return activationFunction;
 }
     
-DerivativeFunc  LayerMeta::getDerivativeFunc() const {
+DerivativeFunc  DenseLayerMeta::getDerivativeFunc() const {
     return derivativeFunc;
+}
+
+
+DropoutLayerMeta::DropoutLayerMeta(LayerMeta& _previous, float _ratio) : 
+    LayerMeta("Dropout"),
+    previous(_previous), ratio(_ratio) {
+    
+}
+
+int DropoutLayerMeta::getNeuronCount() const {
+    return previous.getNeuronCount();
+}
+
+void DropoutLayerMeta::accept(LayerMetaVisitor&) {
+    
+}
+
+DropoutLayerMeta::~DropoutLayerMeta() {
+
 }

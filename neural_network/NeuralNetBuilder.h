@@ -30,6 +30,8 @@ public:
     
     void addDenseLayer(int neuronCount, ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc);
     
+    void addDropout(float rate);
+    
     void summary() const;
     
     Network* build() const;
@@ -38,7 +40,7 @@ public:
 private:
     int inputCount;
     
-    std::vector<LayerMeta> layers;
+    std::vector<std::shared_ptr<LayerMeta> > layers;
 };
 
 
