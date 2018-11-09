@@ -15,11 +15,20 @@
 #include <iostream>
 #include <memory>
 #include "DropoutLayer.h"
+#include <cstring>
+
 
 #include "Network.h"
 #include "NeuralNetBuilder.h"
 
+#include "core/ux_window.h"
+#include "core/ux_bitmap.h"
+
 using namespace std;
+
+const int w_width = 800;
+const int w_height = 800;
+
 
 class Data {
 public:
@@ -196,10 +205,7 @@ float fabs(float x) {
     return x > 0.0f ? x : -x;
 }
 
-void networkTraining() {
-    std::unique_ptr<std::unique_ptr<Data>[]> data(
-        generateData(setSize, -1.0f, -1.0f, 1.0f, 1.0f, f1, f2)
-    );
+Network* networkTraining(std::unique_ptr<std::unique_ptr<Data>[]>& data) {        
   /*  
     for(int i=0; i<setSize; i++) {
         std::cout<<"DATA: "<<i<<": "
@@ -218,13 +224,13 @@ void networkTraining() {
     
     builder.summary();
     
-    std::unique_ptr<Network> network(builder.build());
+    Network* network(builder.build());
   
     
     // 40 000 iterations
-    for(int i=0; i<2000; i++) {
-        float mod = max(0.0f, (float)i - 1500);
-        mod = 1.0f - (mod/1000);  // mod = learning speed, first 30'000 iters equal 1.0 after that mod will decrease
+    for(int i=0; i<4000; i++) {
+        float mod = max(0.0f, (float)i - 3000);
+        mod = 1.0f - (mod/2000);  // mod = learning speed, first 30'000 iters equal 1.0 after that mod will decrease
      
         mod *= 0.05f;
         
@@ -275,11 +281,14 @@ void networkTraining() {
     
     std::cout<<"TOTAL ERROR: " << (totalError/setSize) << std::endl;
     std::cout<<"Valid: " << validCount << " " << ((float)validCount/setSize) << "%"<< std::endl;
+    
+    return network;
 }
 
 /*
  * 
  */
+/*
 int main(int argc, char** argv) {
     cout<<"Neural network"<<endl;
 
@@ -290,18 +299,18 @@ int main(int argc, char** argv) {
     
     networkTraining();
     
-/*   */
+
     
     return 0;
 }
-
+*/
 
 unique_ptr<Data>* generateData(int setSize, float minX, float minY, float maxX, float maxY, float (*f1)(float), float (*f2)(float)) {
     unique_ptr<Data>* data = new unique_ptr<Data>[setSize];
     
     for(int i=0; i<setSize; i++) {
-        float x = random()%1000;
-        float y = random()%1000;
+        float x = rand()%1000;
+        float y = rand()%1000;
         
         x /= 1000.0f;
         y /= 1000.0f;
@@ -323,3 +332,123 @@ unique_ptr<Data>* generateData(int setSize, float minX, float minY, float maxX, 
     
     return data;
 }
+
+UxBitmap bitmap(w_width, w_height, ARGB_8888);
+
+void onFrame(UxWindow* uxWindow) {    
+    uxWindow->getBitmap().drawBitmap(&bitmap, 0, 0);            
+}
+
+int getIndex(float *out, int size) {
+    int max = 0;
+    for(int i=1; i<size; i++) {
+        if (out[max] < out[i]) {
+            max = i;
+        }
+    }
+    return max;
+}
+
+const int plotSize = 1;
+
+void plot(UxBitmap& bitmap, int x, int y, int color) {   
+    int sx = max(0, x - plotSize);
+    int sy = max(0, y - plotSize);
+    
+    int ex = min(bitmap.getWidth(), x + plotSize + 1);
+    int ey = min(bitmap.getHeight(), y + plotSize + 1);
+          
+    for(int yy = sy; yy<ey; yy++) {
+        for(int xx = sx; xx<ex; xx++) {
+            bitmap.asUInt32()[xx + yy * bitmap.getWidth()] = color;
+        }
+    }
+}
+
+void init() {
+    std::unique_ptr<std::unique_ptr<Data>[]> data(
+        generateData(setSize, -1.0f, -1.0f, 1.0f, 1.0f, f1, f2)
+    );
+    
+    std::unique_ptr<Network> network(networkTraining(data));
+    
+    uint32* dataImg = bitmap.asUInt32();
+    
+    for(int y=0; y<bitmap.getHeight(); y++) {
+        for(int x=0; x<bitmap.getWidth(); x++) {            
+            
+            float xx = x;
+            float yy = y;
+            
+            xx /= bitmap.getWidth();  // 0 .. 1
+            yy /= bitmap.getHeight();
+            
+            xx = xx * 6.0f - 3.0f;
+            yy = yy * 6.0f - 3.0f;
+                        
+            //std::cout<<"IN "<<xx<<", "<<yy<<" = "<<p.calculate(in)<<std::endl;
+            network->getInput()[0] = xx;
+            network->getInput()[1] = yy;
+            network->calculate();
+            
+            int index = getIndex(network->getOutput(), 4);
+            int color = 0xff000000;
+            switch(index) {
+                case 0: color = 0xff990000; break;
+                case 1: color = 0xff009900; break;
+                case 2: color = 0xff000099; break;
+                case 3: color = 0xff999900; break;
+            }                       
+            plot(bitmap, x, y, color);            
+        }
+    }    
+    
+    for(int i=0; i<setSize; i++) {
+        
+        std::unique_ptr<Data>& point = data[i];
+        
+        float xx = point->getIn()[0];
+        float yy = point->getIn()[1];
+        
+        int index = getIndex(point->getOut(), 4);
+        int color = 0xff000000;
+        switch(index) {
+            case 0: color = 0xffff0000; break;
+            case 1: color = 0xff00ff00; break;
+            case 2: color = 0xff0000ff; break;
+            case 3: color = 0xffffff00; break;
+        }                               
+                
+        int x = (int)(bitmap.getWidth()  * (xx + 3.0f) / 6.0);
+        int y = (int)(bitmap.getHeight() * (yy + 3.0f) / 6.0);
+        
+        plot(bitmap, x, y, color);                    
+               
+    }
+    
+    for(int x=0; x<bitmap.getWidth(); x++) {
+        float xx = (float)x  / bitmap.getWidth() ;
+        xx = xx * 6.0f - 3.0f;
+        
+        float yy1 = f1(xx);
+        float yy2 = f2(xx);
+        int y1 = (int)(bitmap.getHeight() * (yy1 + 3.0f) / 6.0);
+        int y2 = (int)(bitmap.getHeight() * (yy2 + 3.0f) / 6.0);
+        
+        y1 = min(max(0, y1), bitmap.getHeight() - 1);
+        y2 = min(max(0, y2), bitmap.getHeight() - 1);
+     
+        
+        plot(bitmap, x, y1, 0xFFFFFFFF);
+        plot(bitmap, x, y2, 0xFFFFFFFF);
+    }
+    
+    UxWindow* uxWindow1 = new UxWindow(mainEnvironment, "Test 1", w_width, w_height, onFrame);
+    uxWindow1->show();
+    
+    
+    
+	
+}
+
+START_PROC(init())

@@ -12,7 +12,8 @@
  */
 
 #include "DenseLayer.h"
-
+#include <cmath>
+#include <cstring>
 
 DenseLayer::DenseLayer(ActivationFunc _activationFunction, DerivativeFunc _derivativeFunc, 
             int _inputCount, float* _input,
@@ -25,7 +26,7 @@ DenseLayer::DenseLayer(ActivationFunc _activationFunction, DerivativeFunc _deriv
         outputCount(_outputCount), sum(_sum), output(_output), oldWeights(new float[(_inputCount + 1) * _outputCount])
 {
     for(int i=0; i<(_inputCount + 1) * _outputCount; i++) {
-        weights[i] = ((float)(random()%1000)) / 1000.0f;
+        weights[i] = ((float)(rand()%1000)) / 1000.0f;
     }
 }
 

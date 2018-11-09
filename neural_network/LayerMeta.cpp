@@ -12,6 +12,7 @@
  */
 
 #include "LayerMeta.h"
+#include <cstring>
 
  LayerMeta::LayerMeta(const char *_name) : 
    name(std::unique_ptr<char[]>(new char[strlen(_name) + 1])) {
