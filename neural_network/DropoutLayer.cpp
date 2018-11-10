@@ -17,6 +17,8 @@
 DropoutLayer::DropoutLayer(float _ratio, int _inputCount, float * const _input) : 
     Layer("Dropout"), inputCount(_inputCount), input(_input), dropout(new float[_inputCount]) {
     
+    bool enabled = true;
+    
     int dropCount = (int)(inputCount * _ratio);
     dropCount = std::min(std::max(0, dropCount), inputCount);
     
@@ -26,16 +28,24 @@ DropoutLayer::DropoutLayer(float _ratio, int _inputCount, float * const _input) 
     
     for(int i=dropCount; i<inputCount; i++) {
         dropout[i] = 1.0f;
-    }
+    }    
+}
+
+void DropoutLayer::enable() {
+    this->enabled = true;
+}
     
-    
+void DropoutLayer::disable() {
+    this->enabled = false;
 }
 
 void DropoutLayer::calculate() {
-    std::random_shuffle(dropout.get(), dropout.get() + inputCount);
-    
-    for(int i=0; i<inputCount; i++) {
-        input[i] *= dropout[i];
+    if (this->enabled) {
+        std::random_shuffle(dropout.get(), dropout.get() + inputCount);
+
+        for(int i=0; i<inputCount; i++) {
+            input[i] *= dropout[i];
+        }
     }
 }
 

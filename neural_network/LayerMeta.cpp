@@ -39,8 +39,8 @@ int DenseLayerMeta::getNeuronCount() const {
     return neuronCount;
 }
 
-void DenseLayerMeta::accept(LayerMetaVisitor&) {
-    
+void DenseLayerMeta::accept(LayerMetaVisitor &visitor) {
+    visitor.visit(*this);
 }
 
 DenseLayerMeta::~DenseLayerMeta() {
@@ -65,8 +65,8 @@ int DropoutLayerMeta::getNeuronCount() const {
     return previous.getNeuronCount();
 }
 
-void DropoutLayerMeta::accept(LayerMetaVisitor&) {
-    
+void DropoutLayerMeta::accept(LayerMetaVisitor& visitor) {
+    visitor.visit(*this);
 }
 
 DropoutLayerMeta::~DropoutLayerMeta() {

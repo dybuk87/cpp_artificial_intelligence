@@ -26,6 +26,10 @@ public:
     
     void backprop(float *target, float roScale);
     
+    void disableDropouts();
+    
+    void enableDropouts();
+    
     float totalError(float *target) const;
     
     float* getInput() const ;

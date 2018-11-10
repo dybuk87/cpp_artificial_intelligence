@@ -206,22 +206,12 @@ float fabs(float x) {
 }
 
 Network* networkTraining(std::unique_ptr<std::unique_ptr<Data>[]>& data) {        
-  /*  
-    for(int i=0; i<setSize; i++) {
-        std::cout<<"DATA: "<<i<<": "
-                <<data[i]->getIn()[0]<<", " << data[i]->getIn()[1]
-                << " = "
-                <<data[i]->getOut()[0]<<", " << data[i]->getOut()[1]<<", " << data[i]->getOut()[2]<<", " << data[i]->getOut()[3]
-                <<std::endl;
-    }*/
-    
     NeuralNetBuilder builder(2);
     builder.addDenseLayer(10, logistic, dlogistic);
-    //builder.addDropout(0.4);
+    builder.addDropout(0.4);
     builder.addDenseLayer(8, logistic, dlogistic);
-   // builder.addDropout(0.2);
-    builder.addDenseLayer(4, relu, drelu);
-    
+    builder.addDropout(0.2);
+    builder.addDenseLayer(4, relu, drelu);    
     builder.summary();
     
     Network* network(builder.build());
@@ -247,6 +237,8 @@ Network* networkTraining(std::unique_ptr<std::unique_ptr<Data>[]>& data) {
             std::cout<<"ITER: " << i<<endl;
         }
     }
+    
+    network->disableDropouts();
     
     float totalError = 0.0f;
     

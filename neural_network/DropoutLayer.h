@@ -25,12 +25,18 @@ public:
     virtual void backprop(float ro);
     
     virtual int getOutputCount() const ;
+    
+    void enable();
+    
+    void disable();
    
     virtual ~DropoutLayer();
 private:
     int inputCount; 
     float * const input;
     std::unique_ptr<float[]> dropout;
+    
+    bool enabled;
 };
 
 #endif /* DROPOUTLAYER_H */
